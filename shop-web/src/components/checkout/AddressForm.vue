@@ -1,6 +1,11 @@
 <template>
   <form class="card form" @submit.prevent="submit">
-    <h3>{{ title }}</h3>
+    <header class="head">
+      <h3>{{ title }}</h3>
+      <button v-if="cancelable" class="button link" type="button" @click="$emit('cancel')">
+        Cancel
+      </button>
+    </header>
     <div class="grid two">
       <label>
         Full name
@@ -15,8 +20,13 @@
         <input v-model="local.phone" class="input" />
       </label>
       <label>
-        Country ID
-        <input v-model.number="local.country_id" class="input" type="number" />
+        Country
+        <select v-model.number="local.country_id" class="input" required @change="onCountryChange">
+          <option :value="null" disabled>Select a country</option>
+          <option v-for="c in countries" :key="c.id" :value="c.id">
+            {{ c.name }}
+          </option>
+        </select>
       </label>
       <label>
         Street
@@ -32,40 +42,49 @@
       </label>
       <label>
         ZIP
-        <input v-model="local.zip" class="input" required />
+        <input v-model="local.zip" class="input" :required="zipRequired" />
+      </label>
+      <label v-if="states.length">
+        State
+        <select v-model.number="local.state_id" class="input" :required="stateRequired">
+          <option :value="null">— None —</option>
+          <option v-for="s in states" :key="s.id" :value="s.id">
+            {{ s.name }}
+          </option>
+        </select>
       </label>
       <label>
-        State ID
-        <input v-model.number="local.state_id" class="input" type="number" />
-      </label>
-      <label>
-        VAT
+        {{ vatLabel }}
         <input v-model="local.vat" class="input" />
       </label>
     </div>
-    <button class="button primary" type="submit">
-      Save {{ addressType }} address
+    <p v-if="error" class="error">{{ error }}</p>
+    <button class="button primary" type="submit" :disabled="loading">
+      {{ submitLabel }}
     </button>
   </form>
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { computed, reactive, ref, watch } from "vue";
+
+import { useCheckoutStore } from "../../stores/checkout";
 
 const props = defineProps({
-  title: {
-    type: String,
-    default: "Address"
-  },
-  addressType: {
-    type: String,
-    default: "billing"
-  }
+  title: { type: String, default: "Address" },
+  addressType: { type: String, default: "billing" },
+  initial: { type: Object, default: null },
+  cancelable: { type: Boolean, default: false },
+  submitLabel: { type: String, default: "Save address" }
 });
 
-const emit = defineEmits(["submit"]);
+const emit = defineEmits(["submit", "cancel"]);
 
-const local = reactive({
+const checkoutStore = useCheckoutStore();
+const error = ref("");
+const loading = ref(false);
+
+const empty = {
   name: "",
   email: "",
   phone: "",
@@ -76,13 +95,70 @@ const local = reactive({
   zip: "",
   state_id: null,
   vat: ""
-});
+};
 
-function submit() {
-  emit("submit", {
-    addressType: props.addressType,
-    form: { ...local }
-  });
+const local = reactive({ ...empty });
+const partnerId = ref(null);
+
+watch(
+  () => props.initial,
+  (value) => {
+    if (value) {
+      partnerId.value = value.id || null;
+      Object.assign(local, empty, {
+        name: value.name || "",
+        email: value.email || "",
+        phone: value.phone || "",
+        country_id: value.country_id || null,
+        street: value.street || "",
+        street2: value.street2 || "",
+        city: value.city || "",
+        zip: value.zip || "",
+        state_id: value.state_id || null,
+        vat: value.vat || ""
+      });
+      if (value.country_id) {
+        checkoutStore.loadStates(value.country_id);
+      }
+    } else {
+      partnerId.value = null;
+      Object.assign(local, empty);
+    }
+  },
+  { immediate: true }
+);
+
+const countries = computed(() => checkoutStore.countries);
+const states = computed(() => {
+  const cid = local.country_id;
+  return cid ? checkoutStore.statesByCountry[cid] || [] : [];
+});
+const country = computed(() => countries.value.find((c) => c.id === local.country_id) || null);
+const zipRequired = computed(() => Boolean(country.value?.zip_required));
+const stateRequired = computed(() => Boolean(country.value?.state_required));
+const vatLabel = computed(() => country.value?.vat_label || "VAT");
+
+async function onCountryChange() {
+  local.state_id = null;
+  if (local.country_id) {
+    await checkoutStore.loadStates(local.country_id);
+  }
+}
+
+async function submit() {
+  error.value = "";
+  loading.value = true;
+  try {
+    emit("submit", {
+      partner_id: partnerId.value,
+      addressType: props.addressType,
+      form: { ...local }
+    });
+  } catch (e) {
+    error.value = e.message || "Failed.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -91,6 +167,12 @@ function submit() {
   padding: 1rem;
   display: grid;
   gap: 0.9rem;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
 h3 {
@@ -104,6 +186,24 @@ h3 {
 label {
   display: grid;
   gap: 0.35rem;
+}
+
+.error {
+  color: var(--danger);
+  margin: 0;
+}
+
+.button.link {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.button.link:hover {
+  color: var(--text);
 }
 
 @media (max-width: 860px) {

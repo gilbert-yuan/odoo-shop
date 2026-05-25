@@ -1,8 +1,8 @@
 <template>
   <div class="container catalog">
     <header class="head">
-      <h1 class="section-title">Shop</h1>
-      <p class="muted">{{ catalogStore.products.length }} products</p>
+      <h1 class="section-title">{{ t("nav.shop") }}</h1>
+      <p class="muted">{{ catalogStore.products.length }} {{ t("nav.shop").toLowerCase() }}</p>
     </header>
 
     <div class="layout">
@@ -13,7 +13,9 @@
       />
 
       <section>
-        <div v-if="catalogStore.loading" class="card loading">Loading catalog...</div>
+        <div v-if="catalogStore.loading" class="grid cards">
+          <SkeletonCard v-for="i in 6" :key="`s${i}`" />
+        </div>
         <div v-else-if="!catalogStore.products.length">
           <EmptyState
             title="No products found"
@@ -36,15 +38,19 @@
 
 <script setup>
 import { onMounted } from "vue";
+import { useHead } from "@unhead/vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 
 import CatalogFilters from "../components/catalog/CatalogFilters.vue";
 import ProductCard from "../components/catalog/ProductCard.vue";
+import SkeletonCard from "../components/catalog/SkeletonCard.vue";
 import EmptyState from "../components/shared/EmptyState.vue";
 import { useCatalogStore } from "../stores/catalog";
 import { useCartStore } from "../stores/cart";
 import { useCompareStore } from "../stores/compare";
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -52,11 +58,20 @@ const catalogStore = useCatalogStore();
 const cartStore = useCartStore();
 const compareStore = useCompareStore();
 
+useHead({
+  title: () => `${t("nav.shop")} | Northstar Commerce`,
+  meta: [{ name: "description", content: () => t("home.heroSubtitle") }]
+});
+
 onMounted(async () => {
   await catalogStore.loadCategories();
   const search = String(route.query.search || "");
   if (search) {
     catalogStore.setSearch(search);
+  }
+  const category = route.query.category ? Number(route.query.category) : null;
+  if (category) {
+    catalogStore.setCategory(category);
   }
   await catalogStore.loadProducts();
 });
@@ -103,6 +118,7 @@ async function compareProduct(product) {
   display: grid;
   grid-template-columns: 290px 1fr;
   gap: 1rem;
+  align-items: start;
 }
 
 .cards {

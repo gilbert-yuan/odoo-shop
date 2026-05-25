@@ -1,97 +1,121 @@
 <template>
   <section class="card panel">
-    <h3>Delivery methods</h3>
-    <p class="muted">Select carrier by ID, or pick one from the list.</p>
-
-    <div v-if="items && items.length" class="items">
-      <button
+    <h3>Delivery method</h3>
+    <p v-if="!items.length" class="muted">No delivery methods available.</p>
+    <div v-else class="items">
+      <label
         v-for="item in items"
         :key="item.id"
-        class="method button ghost"
-        type="button"
-        @click="$emit('set', item.id)"
+        class="method"
+        :class="{ active: modelValue === item.id }"
       >
-        <span>{{ item.name }}</span>
-        <small>#{{ item.id }} · {{ item.delivery_type }}</small>
-      </button>
+        <input
+          :checked="modelValue === item.id"
+          :value="item.id"
+          name="delivery-method"
+          type="radio"
+          @change="$emit('update:modelValue', item.id)"
+        />
+        <span class="info">
+          <strong>{{ item.name }}</strong>
+          <small>{{ item.delivery_type || "" }}</small>
+        </span>
+        <span class="price">
+          <template v-if="rates[item.id]?.success">{{ money(rates[item.id].price) }}</template>
+          <template v-else-if="rates[item.id]?.error_message">
+            <span class="error">{{ rates[item.id].error_message }}</span>
+          </template>
+          <template v-else>—</template>
+        </span>
+      </label>
     </div>
-
-    <div class="set-row">
-      <input v-model.number="carrierId" class="input" type="number" min="1" placeholder="Carrier ID" />
-      <button class="button primary" type="button" @click="setMethod">
-        Set method
-      </button>
-    </div>
-
-    <details>
-      <summary>Rendered delivery block</summary>
-      <div class="raw" v-html="html"></div>
-    </details>
   </section>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { onMounted, watch } from "vue";
 
 const props = defineProps({
-  html: {
-    type: String,
-    default: ""
-  },
-  items: {
-    type: Array,
-    default: () => []
-  }
+  items: { type: Array, default: () => [] },
+  rates: { type: Object, default: () => ({}) },
+  modelValue: { type: Number, default: null },
+  currency: { type: String, default: "USD" }
 });
 
-const emit = defineEmits(["set"]);
-const carrierId = ref(null);
+const emit = defineEmits(["update:modelValue", "rate-request"]);
 
-function setMethod() {
-  if (!carrierId.value) {
-    return;
-  }
-  emit("set", carrierId.value);
+function money(value) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: props.currency
+  }).format(Number(value || 0));
 }
+
+function requestRatesForAll() {
+  props.items.forEach((item) => {
+    if (!props.rates[item.id]) {
+      emit("rate-request", item.id);
+    }
+  });
+}
+
+onMounted(requestRatesForAll);
+watch(() => props.items.map((i) => i.id).join(","), requestRatesForAll);
 </script>
 
 <style scoped>
 .panel {
   padding: 1rem;
   display: grid;
-  gap: 0.8rem;
+  gap: 0.7rem;
 }
 
 h3 {
   margin: 0;
 }
 
-.set-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.6rem;
-}
-
 .items {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .method {
   display: grid;
-  justify-items: start;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.method small {
+.method:hover {
+  border-color: var(--accent);
+}
+
+.method.active {
+  border-color: var(--accent);
+  background: var(--accent-soft, #f0f7f4);
+}
+
+.info {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.info small {
   color: var(--muted);
 }
 
-.raw {
-  border: 1px dashed var(--line);
-  border-radius: 12px;
-  padding: 0.8rem;
-  background: #fff;
+.price {
+  font-weight: 600;
+}
+
+.price .error {
+  color: var(--danger);
+  font-weight: 400;
+  font-size: 0.8rem;
 }
 </style>

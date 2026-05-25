@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "home": "Home",
+    "shop": "Shop",
+    "cart": "Cart",
+    "wishlist": "Wishlist",
+    "compare": "Compare",
+    "orders": "Orders",
+    "account": "Account",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "profile": "Profile"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "continue": "Continue",
+    "addToCart": "Add to cart",
+    "outOfStock": "Out of stock",
+    "inStock": "In stock",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "tax": "Tax",
+    "search": "Search"
+  },
+  "home": {
+    "heroTitle": "Modern shopping powered by Odoo",
+    "heroSubtitle": "A fast Vue storefront with full Odoo backend integration.",
+    "ctaShop": "Browse the catalog",
+    "ctaSignIn": "Sign in",
+    "featured": "Featured products",
+    "browseCategories": "Browse by category"
+  },
+  "auth": {
+    "login": "Login",
+    "password": "Password",
+    "register": "Create account",
+    "registerHint": "Already have an account?",
+    "forgot": "Forgot password?",
+    "createAccount": "Create account",
+    "resetPassword": "Reset password"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "address": "Address",
+    "delivery": "Delivery",
+    "payment": "Payment",
+    "billingAddress": "Billing address",
+    "shippingAddress": "Shipping address",
+    "useBillingForShipping": "Use billing address for shipping",
+    "continueToDelivery": "Continue to delivery",
+    "continueToPayment": "Continue to payment",
+    "payNow": "Pay {amount}",
+    "noProvider": "No payment provider available."
+  }
+}

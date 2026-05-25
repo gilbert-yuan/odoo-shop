@@ -10,10 +10,14 @@ function normalizeProduct(item) {
     description: item.website_description || item.description_sale || "",
     shortDescription: item.description_sale || "",
     listPrice: Number(item.list_price || 0),
-    salePrice: Number(item.list_price || 0),
+    salePrice: Number(item.price ?? item.list_price ?? 0),
+    hasDiscountedPrice: Boolean(item.has_discounted_price),
     imageUrl: item.image_url || "",
+    imageUrls: item.image_urls || (item.image_url ? [item.image_url] : []),
     canBeSold: item.sale_ok !== false,
-    websitePublished: item.is_published !== false
+    websitePublished: item.is_published !== false,
+    variants: item.variants || [],
+    attributeLines: item.attribute_lines || []
   };
 }
 
@@ -51,7 +55,10 @@ function normalizeOrder(order) {
 async function callApi(path, payload = {}) {
   const result = await rpc(`${MOBILE_API_BASE}${path}`, payload);
   if (!result?.ok) {
-    throw new Error(result?.message || "Mobile shop API call failed.");
+    const err = new Error(result?.message || "Mobile shop API call failed.");
+    err.status = result?.status;
+    err.payload = result?.data || {};
+    throw err;
   }
   return result.data || {};
 }
@@ -101,14 +108,27 @@ export const odooApi = {
 
   async getProductById(id) {
     try {
-      const data = await callApi(`/products/${Number(id)}`);
+      const data = await callApi(`/products/${Number(id)}/full`);
       if (!data.item) {
         return null;
       }
       return normalizeProduct(data.item);
     } catch {
-      return null;
+      try {
+        const data = await callApi(`/products/${Number(id)}`);
+        return data.item ? normalizeProduct(data.item) : null;
+      } catch {
+        return null;
+      }
     }
+  },
+
+  async getProductCombination(productTemplateId, { ptavIds = [], addQty = 1 } = {}) {
+    const data = await callApi(`/products/${Number(productTemplateId)}/combination`, {
+      ptav_ids: ptavIds.map(Number),
+      add_qty: addQty
+    });
+    return data.combination || null;
   },
 
   async getCategories() {
@@ -130,10 +150,6 @@ export const odooApi = {
     }
   },
 
-  async getCartOrderFromPage() {
-    return { orderId: null, lines: [] };
-  },
-
   async getCartLines(orderId) {
     if (!orderId) {
       return [];
@@ -142,11 +158,7 @@ export const odooApi = {
     return (data.lines || []).map(normalizeCartLine);
   },
 
-  async addToCart({
-    productId,
-    addQty = 1,
-    setQty = null
-  }) {
+  async addToCart({ productId, addQty = 1, setQty = null }) {
     return callApi("/cart/update", {
       product_id: Number(productId),
       add_qty: addQty,
@@ -170,16 +182,67 @@ export const odooApi = {
     productTemplateId,
     productId = null,
     combination = [],
-    addQty = 1,
-    parentCombination = []
+    addQty = 1
   }) {
-    return rpc("/website_sale/get_combination_info", {
-      product_template_id: Number(productTemplateId),
-      product_id: productId ? Number(productId) : false,
-      combination: combination.map(Number),
-      add_qty: addQty,
-      parent_combination: parentCombination.map(Number)
+    return this.getProductCombination(productTemplateId, {
+      ptavIds: combination,
+      addQty
     });
+  },
+
+  // ---------- account ----------
+  async register({ name, login, password, phone = null }) {
+    return callApi("/auth/register", { name, login, password, phone });
+  },
+
+  async passwordForgot(login) {
+    return callApi("/auth/password/forgot", { login });
+  },
+
+  async passwordReset({ token, login, newPassword }) {
+    return callApi("/auth/password/reset", {
+      token,
+      login,
+      new_password: newPassword
+    });
+  },
+
+  async changePassword({ currentPassword, newPassword }) {
+    return callApi("/auth/password/change", {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+  },
+
+  async getProfile() {
+    return callApi("/profile");
+  },
+
+  async updateProfile({ name = null, email = null, phone = null, lang = null }) {
+    return callApi("/profile/update", { name, email, phone, lang });
+  },
+
+  // ---------- meta ----------
+  async getLanguages() {
+    return callApi("/languages");
+  },
+
+  async getSitemapData() {
+    return callApi("/sitemap");
+  },
+
+  // ---------- contact / wholesale / COA ----------
+  async submitContact({ name, email, phone, subject, message }) {
+    return callApi("/contact", { name, email, phone, subject, message });
+  },
+
+  async submitWholesale({ company, name, email, phone, country, products, volume, message }) {
+    return callApi("/wholesale", { company, name, email, phone, country, products, volume, message });
+  },
+
+  async lookupCoa(code) {
+    const data = await callApi("/coa/lookup", { code });
+    return data.items || [];
   },
 
   async getAutocomplete(term, limit = 8) {
@@ -234,132 +297,146 @@ export const odooApi = {
     });
   },
 
-  async getCheckoutOrder() {
-    const data = await callApi("/cart");
+  // ---------- geography ----------
+  async getCountries() {
+    const data = await callApi("/countries");
+    return data.items || [];
+  },
+
+  async getStates(countryId) {
+    if (!countryId) {
+      return [];
+    }
+    const data = await callApi(`/countries/${Number(countryId)}/states`);
+    return data.items || [];
+  },
+
+  // ---------- addresses ----------
+  async getAddresses(addressType = "all") {
+    const data = await callApi("/addresses", { address_type: addressType });
     return {
-      ...(data.order || {}),
-      lines: (data.lines || []).map(normalizeCartLine)
+      items: data.items || [],
+      currentBillingId: data.current_billing_id || null,
+      currentShippingId: data.current_shipping_id || null
     };
   },
 
-  async submitAddress({
-    partnerId = null,
-    addressType = "billing",
-    useDeliveryAsBilling = false,
-    form = {}
-  }) {
-    const params = new URLSearchParams();
-    if (partnerId) {
-      params.set("partner_id", String(partnerId));
-    }
-    params.set("address_type", addressType);
-    params.set("use_delivery_as_billing", useDeliveryAsBilling ? "true" : "false");
-    Object.entries(form).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.set(key, String(value));
-      }
+  async saveAddress({ partnerId = null, addressType = "billing", form = {}, useOnOrder = true }) {
+    return callApi("/addresses/save", {
+      partner_id: partnerId ? Number(partnerId) : null,
+      address_type: addressType,
+      form,
+      use_on_order: useOnOrder
     });
-
-    const response = await fetch("/shop/address/submit", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      credentials: "include",
-      body: params.toString()
-    });
-
-    if (!response.ok) {
-      throw new Error(`Address submit failed: HTTP ${response.status}`);
-    }
-    const text = await response.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { redirectUrl: "/checkout" };
-    }
   },
 
-  async getCountryInfo(countryId, addressType = "billing") {
-    return rpc(`/shop/country_info/${Number(countryId)}`, {
+  async deleteAddress(partnerId) {
+    return callApi(`/addresses/${Number(partnerId)}/delete`);
+  },
+
+  async useAddressOnOrder(partnerId, addressType = "billing") {
+    return callApi(`/addresses/${Number(partnerId)}/use`, {
       address_type: addressType
     });
   },
 
+  async setDefaultAddress(partnerId, addressType = "billing") {
+    return callApi(`/addresses/${Number(partnerId)}/default`, {
+      address_type: addressType
+    });
+  },
+
+  // ---------- order ----------
+  async getCurrentOrder() {
+    const data = await callApi("/order");
+    return data.order || null;
+  },
+
+  async getOrderDetail(orderId, accessToken = null) {
+    const payload = {};
+    if (accessToken) {
+      payload.access_token = accessToken;
+    }
+    const data = await callApi(`/order/${Number(orderId)}`, payload);
+    return data.order || null;
+  },
+
+  async confirmOrder() {
+    return callApi("/order/confirm");
+  },
+
+  // ---------- delivery ----------
   async getDeliveryMethods() {
     const data = await callApi("/delivery/methods");
     return {
-      rawHtml: "",
       items: data.items || [],
       selectedCarrierId: data.selected_carrier_id || null
     };
   },
 
   async setDeliveryMethod(dmId) {
-    return callApi("/delivery/set", {
-      carrier_id: Number(dmId)
-    });
+    const data = await callApi("/delivery/set", { carrier_id: Number(dmId) });
+    return data.order || null;
   },
 
-  async getDeliveryRate(dmId) {
-    return rpc("/shop/get_delivery_rate", {
-      dm_id: Number(dmId)
-    });
+  async getDeliveryRate(carrierId) {
+    return callApi("/delivery/rate", { carrier_id: Number(carrierId) });
   },
 
-  async setClickAndCollectLocation(pickupLocationData) {
-    return rpc("/shop/set_click_and_collect_location", {
-      pickup_location_data: pickupLocationData
-    });
-  },
-
-  async setPickupLocation(pickupLocationData) {
-    return rpc("/website_sale/set_pickup_location", {
-      pickup_location_data: pickupLocationData
-    });
-  },
-
-  async getPickupLocations({ zipCode = "", productId = null } = {}) {
-    return rpc("/website_sale/get_pickup_locations", {
-      zip_code: zipCode,
-      product_id: productId
-    });
-  },
-
+  // ---------- coupon / reward ----------
   async applyCoupon(code) {
     return callApi("/coupon/apply", { code });
   },
 
-  async claimReward({ rewardId, code = null, redirect = "/shop/cart", productId = null }) {
-    const params = new URLSearchParams();
-    params.set("reward_id", String(rewardId));
-    params.set("r", redirect);
-    if (code) {
-      params.set("code", code);
-    }
-    if (productId) {
-      params.set("product_id", String(productId));
-    }
-    const response = await fetch(`/shop/claimreward?${params.toString()}`, {
-      method: "GET",
-      credentials: "include"
+  async claimReward({ rewardId = null, code = null, productId = null } = {}) {
+    return callApi("/reward/claim", {
+      reward_id: rewardId ? Number(rewardId) : null,
+      code: code || null,
+      product_id: productId ? Number(productId) : null
     });
-    return {
-      ok: response.ok,
-      redirected: response.redirected,
-      url: response.url
-    };
   },
 
-  async preparePaymentTransaction({ orderId, accessToken, providerCode, flow = "redirect", amount = null }) {
-    return rpc(`/shop/payment/transaction/${Number(orderId)}`, {
+  // ---------- payment ----------
+  async getPaymentProviders(orderId = null, accessToken = null) {
+    const payload = {};
+    if (orderId) {
+      payload.order_id = Number(orderId);
+    }
+    if (accessToken) {
+      payload.access_token = accessToken;
+    }
+    return callApi("/payment/providers", payload);
+  },
+
+  async createPaymentTransaction({
+    orderId,
+    accessToken,
+    providerId,
+    paymentMethodId = null,
+    tokenId = null,
+    flow = "redirect",
+    landingRoute = "/checkout/done"
+  }) {
+    return callApi("/payment/transaction", {
+      order_id: Number(orderId),
       access_token: accessToken,
-      provider_code: providerCode,
+      provider_id: Number(providerId),
+      payment_method_id: paymentMethodId ? Number(paymentMethodId) : null,
+      token_id: tokenId ? Number(tokenId) : null,
       flow,
-      amount
+      landing_route: landingRoute
     });
   },
 
+  async getPaymentStatus(orderId, accessToken = null) {
+    const payload = { order_id: Number(orderId) };
+    if (accessToken) {
+      payload.access_token = accessToken;
+    }
+    return callApi("/payment/status", payload);
+  },
+
+  // ---------- orders (history) ----------
   async getOrders(limit = 20) {
     const data = await callApi("/orders", { limit });
     return (data.items || []).map(normalizeOrder);
@@ -370,6 +447,7 @@ export const odooApi = {
     return (data.lines || []).map(normalizeCartLine);
   },
 
+  // ---------- configurator (deferred; still legacy) ----------
   async createProductVariant(productTemplateId, ptavIds) {
     return rpc("/sale/create_product_variant", {
       product_template_id: Number(productTemplateId),
@@ -414,6 +492,25 @@ export const odooApi = {
 
   async updateCartWithCombo(payload) {
     return rpc("/website_sale/combo_configurator/update_cart", payload);
+  },
+
+  async setClickAndCollectLocation(pickupLocationData) {
+    return rpc("/shop/set_click_and_collect_location", {
+      pickup_location_data: pickupLocationData
+    });
+  },
+
+  async setPickupLocation(pickupLocationData) {
+    return rpc("/website_sale/set_pickup_location", {
+      pickup_location_data: pickupLocationData
+    });
+  },
+
+  async getPickupLocations({ zipCode = "", productId = null } = {}) {
+    return rpc("/website_sale/get_pickup_locations", {
+      zip_code: zipCode,
+      product_id: productId
+    });
   },
 
   async markRecentlyViewed(productId) {

@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "home": "首页",
+    "shop": "商城",
+    "cart": "购物车",
+    "wishlist": "心愿单",
+    "compare": "对比",
+    "orders": "订单",
+    "account": "账户",
+    "signIn": "登录",
+    "signOut": "退出登录",
+    "profile": "个人资料"
+  },
+  "common": {
+    "loading": "加载中…",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "back": "返回",
+    "continue": "继续",
+    "addToCart": "加入购物车",
+    "outOfStock": "缺货",
+    "inStock": "有货",
+    "total": "合计",
+    "subtotal": "小计",
+    "shipping": "运费",
+    "tax": "税费",
+    "search": "搜索"
+  },
+  "home": {
+    "heroTitle": "由 Odoo 驱动的现代商城",
+    "heroSubtitle": "快速的 Vue 商城前端，深度对接 Odoo 后端。",
+    "ctaShop": "浏览商品",
+    "ctaSignIn": "登录",
+    "featured": "精选商品",
+    "browseCategories": "按分类浏览"
+  },
+  "auth": {
+    "login": "邮箱",
+    "password": "密码",
+    "register": "注册账号",
+    "registerHint": "已经有账号？",
+    "forgot": "忘记密码？",
+    "createAccount": "创建账号",
+    "resetPassword": "重置密码"
+  },
+  "checkout": {
+    "title": "结算",
+    "address": "地址",
+    "delivery": "配送",
+    "payment": "支付",
+    "billingAddress": "账单地址",
+    "shippingAddress": "收货地址",
+    "useBillingForShipping": "使用账单地址作为收货地址",
+    "continueToDelivery": "下一步：配送",
+    "continueToPayment": "下一步：支付",
+    "payNow": "支付 {amount}",
+    "noProvider": "暂无可用的支付方式。"
+  }
+}

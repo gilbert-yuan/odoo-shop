@@ -5,11 +5,12 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     host: "0.0.0.0",
-    port: 4173,
+    port: 5173,
     proxy: {
       "/web": {
         target: "http://127.0.0.1:8069",
-        changeOrigin: true
+        changeOrigin: true,
+        ws: true
       },
       "/shop": {
         target: "http://127.0.0.1:8069",
@@ -28,6 +29,10 @@ export default defineConfig({
         changeOrigin: true
       },
       "/coupon": {
+        target: "http://127.0.0.1:8069",
+        changeOrigin: true
+      },
+      "/api": {
         target: "http://127.0.0.1:8069",
         changeOrigin: true
       }

@@ -1,63 +1,70 @@
 <template>
   <footer class="footer">
-    <div class="container footer-grid">
-      <section>
-        <h3>Northstar Commerce</h3>
-        <p class="muted">
-          A modern Vue storefront connected to Odoo 18 ecommerce APIs.
-        </p>
-      </section>
-      <section>
-        <h4>Customer</h4>
-        <RouterLink to="/shop">Shop</RouterLink>
-        <RouterLink to="/cart">Cart</RouterLink>
-        <RouterLink to="/account/orders">Orders</RouterLink>
-      </section>
-      <section>
-        <h4>Commerce</h4>
-        <RouterLink to="/wishlist">Wishlist</RouterLink>
-        <RouterLink to="/compare">Compare</RouterLink>
-        <RouterLink to="/checkout">Checkout</RouterLink>
-      </section>
+    <div class="container footer-row">
+      <nav class="links">
+        <RouterLink to="/about">About NextPept</RouterLink>
+        <RouterLink to="/terms">Terms And Conditions</RouterLink>
+        <RouterLink to="/shipping-returns">Shipping And Returns</RouterLink>
+        <RouterLink to="/refund-policy">Refund And Returns Policy</RouterLink>
+        <RouterLink to="/privacy">Privacy Policy</RouterLink>
+      </nav>
+      <p class="copy muted">© {{ year }} NextPept. All rights reserved.</p>
     </div>
   </footer>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { RouterLink } from "vue-router";
+
+const year = computed(() => new Date().getFullYear());
 </script>
 
 <style scoped>
 .footer {
   border-top: 1px solid var(--line);
   margin-top: 2rem;
-  padding: 2.2rem 0;
+  padding: 1.8rem 0;
   background: #f2eee3;
 }
 
-.footer-grid {
+:global(html.dark) .footer {
+  background: #131c18;
+}
+
+.footer-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 1.2rem;
+  gap: 0.9rem;
+  justify-items: center;
+  text-align: center;
 }
 
-h3,
-h4 {
-  margin: 0 0 0.5rem;
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.6rem;
+  font-size: 0.92rem;
 }
 
-section {
-  display: grid;
-  gap: 0.4rem;
-}
-
-section a {
+.links a {
   color: var(--muted);
+  transition: color 0.15s;
 }
 
-@media (max-width: 820px) {
-  .footer-grid {
-    grid-template-columns: 1fr;
+.links a:hover,
+.links a.router-link-active {
+  color: var(--ink);
+}
+
+.copy {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .links {
+    gap: 0.35rem 1rem;
   }
 }
 </style>

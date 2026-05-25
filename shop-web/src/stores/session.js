@@ -7,6 +7,7 @@ export const useSessionStore = defineStore("session", {
     loading: false,
     user: null,
     sessionInfo: null,
+    profile: null,
     authError: ""
   }),
 
@@ -56,12 +57,95 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    async register({ name, login, password, phone }) {
+      this.loading = true;
+      this.authError = "";
+      try {
+        const info = await odooApi.register({ name, login, password, phone });
+        this.user = info && info.uid ? { uid: info.uid, name: info.name, login } : null;
+        this.sessionInfo = info;
+        return this.user;
+      } catch (error) {
+        this.authError = error.message || "Registration failed.";
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async forgotPassword(login) {
+      this.authError = "";
+      try {
+        return await odooApi.passwordForgot(login);
+      } catch (error) {
+        this.authError = error.message || "Password reset request failed.";
+        throw error;
+      }
+    },
+
+    async resetPassword({ token, login, newPassword }) {
+      this.loading = true;
+      this.authError = "";
+      try {
+        const result = await odooApi.passwordReset({ token, login, newPassword });
+        await this.bootstrap();
+        return result;
+      } catch (error) {
+        this.authError = error.message || "Password reset failed.";
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async changePassword({ currentPassword, newPassword }) {
+      this.loading = true;
+      this.authError = "";
+      try {
+        return await odooApi.changePassword({ currentPassword, newPassword });
+      } catch (error) {
+        this.authError = error.message || "Change password failed.";
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async loadProfile() {
+      if (!this.isLoggedIn) {
+        return null;
+      }
+      try {
+        this.profile = await odooApi.getProfile();
+        return this.profile;
+      } catch (error) {
+        return null;
+      }
+    },
+
+    async updateProfile(payload) {
+      this.loading = true;
+      try {
+        const result = await odooApi.updateProfile(payload);
+        if (this.profile) {
+          this.profile = { ...this.profile, ...result };
+        }
+        if (this.user && result.name) {
+          this.user = { ...this.user, name: result.name };
+        }
+        return result;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async logout() {
       this.loading = true;
       try {
         await odooApi.logout();
         this.user = null;
         this.sessionInfo = null;
+        this.profile = null;
       } finally {
         this.loading = false;
       }

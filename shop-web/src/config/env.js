@@ -11,6 +11,8 @@ export function resolveOdooUrl(path) {
   if (odooEnv.useProxy) {
     return path;
   }
+  console.log(path)
+  console.log(odooEnv.baseUrl)
   if (!path.startsWith("/")) {
     return `${odooEnv.baseUrl}/${path}`;
   }

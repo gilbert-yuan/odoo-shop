@@ -1,34 +1,37 @@
 <template>
-  <article class="line card">
+  <article class="line card" :class="{ disabled }">
     <div class="meta">
       <h4>{{ line.name }}</h4>
       <p class="muted">Unit {{ money(line.unitPrice) }}</p>
     </div>
     <div class="qty">
-      <button class="button ghost qty-btn" type="button" @click="$emit('decrease', line)">-</button>
+      <button class="button ghost qty-btn" type="button" :disabled="disabled" @click="$emit('decrease', line)">-</button>
       <span>{{ line.quantity }}</span>
-      <button class="button ghost qty-btn" type="button" @click="$emit('increase', line)">+</button>
+      <button class="button ghost qty-btn" type="button" :disabled="disabled" @click="$emit('increase', line)">+</button>
     </div>
     <div class="total">{{ money(line.total) }}</div>
-    <button class="button ghost" type="button" @click="$emit('remove', line)">Remove</button>
+    <button class="button ghost" type="button" :disabled="disabled" @click="$emit('remove', line)">Remove</button>
   </article>
 </template>
 
 <script setup>
+import { formatMoney } from "../../utils/format";
+
 defineProps({
   line: {
     type: Object,
     required: true
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 });
 
 defineEmits(["increase", "decrease", "remove"]);
 
 function money(value) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD"
-  }).format(Number(value || 0));
+  return formatMoney(value);
 }
 </script>
 
@@ -39,6 +42,11 @@ function money(value) {
   grid-template-columns: 2fr auto auto auto;
   gap: 0.8rem;
   align-items: center;
+  transition: opacity 0.2s;
+}
+
+.line.disabled {
+  opacity: 0.7;
 }
 
 .meta h4 {

@@ -5,6 +5,7 @@
       <RouterView />
     </main>
     <AppFooter />
+    <CookieBanner />
   </div>
 </template>
 
@@ -14,6 +15,7 @@ import { RouterView } from "vue-router";
 
 import AppHeader from "./components/layout/AppHeader.vue";
 import AppFooter from "./components/layout/AppFooter.vue";
+import CookieBanner from "./components/layout/CookieBanner.vue";
 import { useSessionStore } from "./stores/session";
 import { useCartStore } from "./stores/cart";
 import { useWishlistStore } from "./stores/wishlist";

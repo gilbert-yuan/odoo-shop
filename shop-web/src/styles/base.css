@@ -14,6 +14,18 @@
   --max-width: 1240px;
 }
 
+html.dark {
+  --bg: #0f1612;
+  --panel: #18221d;
+  --ink: #e7ede9;
+  --muted: #91a39c;
+  --line: #2e3a34;
+  --accent: #2dab8b;
+  --accent-soft: #1c3a32;
+  --danger: #ef6b59;
+  --shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -23,11 +35,21 @@ body,
 #app {
   margin: 0;
   min-height: 100%;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-family: "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 10% -10%, #e6f2e9 0%, transparent 36%),
-    radial-gradient(circle at 100% 0, #fff1d8 0%, transparent 38%),
+    radial-gradient(circle at 10% -10%, rgba(13, 128, 102, 0.12) 0%, transparent 36%),
+    radial-gradient(circle at 100% 0, rgba(255, 200, 100, 0.12) 0%, transparent 38%),
+    var(--bg);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+html.dark body,
+html.dark #app {
+  background:
+    radial-gradient(circle at 10% -10%, rgba(45, 171, 139, 0.15) 0%, transparent 36%),
+    radial-gradient(circle at 100% 0, rgba(60, 95, 80, 0.18) 0%, transparent 38%),
     var(--bg);
 }
 
@@ -50,8 +72,13 @@ a {
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
-.button:hover {
+.button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .button.primary {
@@ -63,6 +90,11 @@ a {
 .button.ghost {
   background: transparent;
   border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+html.dark .button.ghost {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .card {
@@ -74,18 +106,29 @@ a {
 
 .input,
 .select,
-.textarea {
+.textarea,
+select {
   width: 100%;
   border: 1px solid var(--line);
   background: #fff;
+  color: var(--ink);
   border-radius: var(--radius-sm);
   padding: 0.7rem 0.85rem;
   font: inherit;
 }
 
+html.dark .input,
+html.dark .select,
+html.dark .textarea,
+html.dark select {
+  background: #0f1916;
+  color: var(--ink);
+}
+
 .input:focus,
 .select:focus,
-.textarea:focus {
+.textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
