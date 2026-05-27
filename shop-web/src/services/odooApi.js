@@ -10,6 +10,7 @@ function normalizeProduct(item) {
     description: item.website_description || item.description_sale || "",
     shortDescription: item.description_sale || "",
     listPrice: Number(item.list_price || 0),
+    compareListPrice: Number(item.compare_list_price || 0),
     salePrice: Number(item.price ?? item.list_price ?? 0),
     hasDiscountedPrice: Boolean(item.has_discounted_price),
     imageUrl: item.image_url || "",
@@ -17,7 +18,13 @@ function normalizeProduct(item) {
     canBeSold: item.sale_ok !== false,
     websitePublished: item.is_published !== false,
     variants: item.variants || [],
-    attributeLines: item.attribute_lines || []
+    attributeLines: item.attribute_lines || [],
+    defaultCode: item.default_code || "",
+    ratingAvg: Number(item.rating_avg || 0),
+    ratingCount: Number(item.rating_count || 0),
+    ribbon: item.ribbon || null,
+    tags: item.tags || [],
+    uomName: item.uom_name || ""
   };
 }
 

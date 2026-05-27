@@ -49,6 +49,27 @@ def _currency_payload(currency):
 
 def _product_payload(product_tmpl):
     image_url = f"/web/image/product.template/{product_tmpl.id}/image_512"
+
+    ribbon = None
+    if hasattr(product_tmpl, "website_ribbon_id") and product_tmpl.website_ribbon_id:
+        r = product_tmpl.website_ribbon_id
+        ribbon = {
+            "id": r.id,
+            "name": r.name or "",
+            "bg_color": getattr(r, "bg_color", "") or "",
+            "text_color": getattr(r, "text_color", "") or "",
+            "html_class": getattr(r, "html_class", "") or "",
+        }
+
+    tags = []
+    if hasattr(product_tmpl, "product_tag_ids"):
+        for tag in product_tmpl.product_tag_ids:
+            tags.append({
+                "id": tag.id,
+                "name": tag.name,
+                "color": getattr(tag, "color", 0) or 0,
+            })
+
     return {
         "id": product_tmpl.id,
         "name": product_tmpl.name,
@@ -56,11 +77,18 @@ def _product_payload(product_tmpl):
         "website_description": product_tmpl.website_description or "",
         "description_sale": product_tmpl.description_sale or "",
         "list_price": product_tmpl.list_price,
+        "compare_list_price": getattr(product_tmpl, "compare_list_price", 0) or 0,
         "currency": _currency_payload(product_tmpl.currency_id),
         "image_url": image_url,
         "is_published": bool(product_tmpl.is_published),
         "sale_ok": bool(product_tmpl.sale_ok),
         "public_category_ids": product_tmpl.public_categ_ids.ids,
+        "default_code": product_tmpl.default_code or "",
+        "rating_avg": getattr(product_tmpl, "rating_avg", 0) or 0,
+        "rating_count": getattr(product_tmpl, "rating_count", 0) or 0,
+        "ribbon": ribbon,
+        "tags": tags,
+        "uom_name": product_tmpl.uom_id.name if product_tmpl.uom_id else "",
     }
 
 
@@ -419,31 +447,102 @@ class MobileShopApiController(http.Controller):
     def cart_update(self, product_id=None, line_id=None, add_qty=None, set_qty=None):
         if not product_id and not line_id:
             return _err("product_id or line_id required", 400)
-        order = request.website.sale_get_order(force_create=True).sudo()
-        kwargs = {}
-        if product_id:
-            variant_id = self._resolve_variant_id(product_id)
-            if not variant_id:
-                return _err("product not found", 404)
-            kwargs["product_id"] = variant_id
-        if line_id:
-            kwargs["line_id"] = _to_int(line_id)
-        if add_qty is not None:
-            kwargs["add_qty"] = _to_float(add_qty, 0.0)
-        if set_qty is not None:
-            kwargs["set_qty"] = _to_float(set_qty, 0.0)
-        values = order._cart_update(**kwargs)
-        request.session["website_sale_cart_quantity"] = order.cart_quantity
 
-        line = request.env["sale.order.line"].sudo().browse(values.get("line_id"))
-        return _ok(
-            {
+        order = request.website.sale_get_order(force_create=True).sudo()
+        line_id_int = _to_int(line_id) if line_id else 0
+        set_qty_provided = set_qty is not None and set_qty != ""
+        set_qty_float = _to_float(set_qty, -1.0) if set_qty_provided else -1.0
+        add_qty_provided = add_qty is not None and add_qty != ""
+        add_qty_float = _to_float(add_qty, 0.0) if add_qty_provided else 0.0
+
+        # Path 1 — explicit removal: set_qty <= 0 on an existing line
+        if line_id_int and set_qty_provided and set_qty_float <= 0:
+            line = request.env["sale.order.line"].sudo().browse(line_id_int)
+            if not line.exists() or line.order_id.id != order.id:
+                return _err("line not found in current cart", 404)
+            try:
+                line.unlink()
+            except Exception as exc:
+                return _err(f"failed to remove line: {exc}", 400)
+            request.session["website_sale_cart_quantity"] = order.cart_quantity
+            return _ok({
+                "removed": True,
+                "cart_quantity": order.cart_quantity,
+                "order": _order_payload(order),
+                "line": None,
+            })
+
+        # Path 2 — set quantity on an existing line (set_qty > 0)
+        if line_id_int and set_qty_provided and set_qty_float > 0:
+            line = request.env["sale.order.line"].sudo().browse(line_id_int)
+            if not line.exists() or line.order_id.id != order.id:
+                return _err("line not found in current cart", 404)
+            values = {}
+            try:
+                values = order._cart_update(
+                    line_id=line.id,
+                    product_id=line.product_id.id,
+                    set_qty=set_qty_float,
+                ) or {}
+            except Exception:
+                try:
+                    line.write({"product_uom_qty": set_qty_float})
+                    values = {"line_id": line.id, "quantity": set_qty_float}
+                except Exception as exc:
+                    return _err(f"failed to set quantity: {exc}", 400)
+            request.session["website_sale_cart_quantity"] = order.cart_quantity
+            return _ok({
                 "update": values,
                 "cart_quantity": order.cart_quantity,
                 "order": _order_payload(order),
                 "line": _cart_line_payload(line) if line.exists() else None,
-            }
-        )
+            })
+
+        # Path 3 — add to cart (add_qty with product_id, or pure add)
+        if product_id and add_qty_provided:
+            variant_id = self._resolve_variant_id(product_id)
+            if not variant_id:
+                return _err("product not found", 404)
+            try:
+                values = order._cart_update(
+                    product_id=variant_id,
+                    add_qty=add_qty_float,
+                ) or {}
+            except Exception as exc:
+                return _err(f"failed to add to cart: {exc}", 400)
+            request.session["website_sale_cart_quantity"] = order.cart_quantity
+            line = request.env["sale.order.line"].sudo().browse(values.get("line_id") or 0)
+            return _ok({
+                "update": values,
+                "cart_quantity": order.cart_quantity,
+                "order": _order_payload(order),
+                "line": _cart_line_payload(line) if line.exists() else None,
+            })
+
+        # Path 4 — generic fallback (kwargs passthrough)
+        kwargs = {}
+        if product_id:
+            variant_id = self._resolve_variant_id(product_id)
+            if variant_id:
+                kwargs["product_id"] = variant_id
+        if line_id_int:
+            kwargs["line_id"] = line_id_int
+        if add_qty_provided:
+            kwargs["add_qty"] = add_qty_float
+        if set_qty_provided:
+            kwargs["set_qty"] = set_qty_float
+        try:
+            values = order._cart_update(**kwargs) or {}
+        except Exception as exc:
+            return _err(f"cart update failed: {exc}", 400)
+        request.session["website_sale_cart_quantity"] = order.cart_quantity
+        line = request.env["sale.order.line"].sudo().browse(values.get("line_id") or 0)
+        return _ok({
+            "update": values,
+            "cart_quantity": order.cart_quantity,
+            "order": _order_payload(order),
+            "line": _cart_line_payload(line) if line.exists() else None,
+        })
 
     @http.route(f"{_BASE}/cart/clear", type="json", auth="public", methods=["POST"], csrf=False, website=True)
     def cart_clear(self):

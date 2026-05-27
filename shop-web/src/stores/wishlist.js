@@ -34,6 +34,16 @@ export const useWishlistStore = defineStore("wishlist", {
       await this.refresh();
     },
 
+    async toggle(productId) {
+      const id = Number(productId);
+      if (this.ids.includes(id)) {
+        await odooApi.removeWishlist(id);
+      } else {
+        await odooApi.addToWishlist(id);
+      }
+      await this.refresh();
+    },
+
     async removeWish(wishId) {
       await odooApi.removeWishlist(wishId);
       await this.refresh();

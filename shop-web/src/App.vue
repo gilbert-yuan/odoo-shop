@@ -1,5 +1,6 @@
 <template>
   <div class="shell">
+    <AnnouncementBar />
     <AppHeader />
     <main>
       <RouterView />
@@ -13,6 +14,7 @@
 import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 
+import AnnouncementBar from "./components/layout/AnnouncementBar.vue";
 import AppHeader from "./components/layout/AppHeader.vue";
 import AppFooter from "./components/layout/AppFooter.vue";
 import CookieBanner from "./components/layout/CookieBanner.vue";

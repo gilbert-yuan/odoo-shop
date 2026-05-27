@@ -27,8 +27,9 @@
             v-for="product in catalogStore.products"
             :key="product.id"
             :product="product"
+            :in-wishlist="wishlistStore.ids.includes(product.id)"
             @add="addToCart"
-            @compare="compareProduct"
+            @wishlist="toggleWishlist"
           />
         </div>
       </section>
@@ -49,6 +50,7 @@ import EmptyState from "../components/shared/EmptyState.vue";
 import { useCatalogStore } from "../stores/catalog";
 import { useCartStore } from "../stores/cart";
 import { useCompareStore } from "../stores/compare";
+import { useWishlistStore } from "../stores/wishlist";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -57,6 +59,7 @@ const router = useRouter();
 const catalogStore = useCatalogStore();
 const cartStore = useCartStore();
 const compareStore = useCompareStore();
+const wishlistStore = useWishlistStore();
 
 useHead({
   title: () => `${t("nav.shop")} | Northstar Commerce`,
@@ -94,6 +97,10 @@ async function applyFilters(payload) {
 
 async function addToCart(product) {
   await cartStore.addToCart(product.id, 1);
+}
+
+async function toggleWishlist(product) {
+  await wishlistStore.toggle(product.id);
 }
 
 async function compareProduct(product) {
